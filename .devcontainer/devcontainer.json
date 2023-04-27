@@ -4,7 +4,7 @@
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-	"shutdownAction": "stopCompose"
+	"shutdownAction": "stopCompose",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
@@ -25,15 +25,13 @@
 	"containerEnv": {
 		"AUTO_MAGENTO_EDITION": "community",
 		"AUTO_MAGENTO_VERSION": "2.4.5-p1",
-		"AUTO_COMPOSER_REQUIRE": "facebook/facebook-for-magento2",
-		"AUTO_MAGENTO_SAMPLEDATA": "true",
-		"AUTO_POPULATE_WORKSPACE": "true",
-		"AUTO_WORKSPACE_FOLDER": "/workspaces/${localWorkspaceFolderBasename}",
-		"AUTO_CREATE_PROJECT": "true"
+		"AUTO_MAGENTO_SAMPLEDATA": "true"
 	},
 
 	// For use with PHP or Apache (e.g.php -S localhost:8080 or apache2ctl start)
-	"forwardPorts": [8080, 3306]
+	"forwardPorts": [8080, 3306], 
+
+	"postStartCommand": ".devcontainer/entrypoint"
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "sudo chmod a+x \"$(pwd)\" && sudo rm -rf /var/www/html && sudo ln -s \"$(pwd)\" /var/www/html"

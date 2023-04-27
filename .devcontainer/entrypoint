@@ -1,84 +1,83 @@
 #!/bin/bash
+if [ ! -f .installed.flag ]
+then
 
-if [ -n "$AUTO_CREATE_PROJECT" ]; then
-
-  composer create-project --repository-url=https://repo.magento.com/ magento/project-$AUTO_MAGENTO_EDITION-edition=$AUTO_MAGENTO_VERSION /var/www/html
-
-  if [ -n "$AUTO_POPULATE_WORKSPACE" ]; then
-    mv -f /var/www/html/* $AUTO_WORKSPACE_FOLDER
+  if [ ! -f composer.json ]; then
+    composer create-project --no-install --repository-url=https://repo.magento.com/ magento/project-$AUTO_MAGENTO_EDITION-edition=$AUTO_MAGENTO_VERSION .
   fi
+
+  composer install
+
+  rm app/etc/config.php app/etc/env.php
+
+  bin/magento setup:install \
+      --backend-frontname=backend \
+      --amqp-host=db \
+      --amqp-port=5672 \
+      --amqp-user=guest \
+      --amqp-password=guest \
+      --db-host=db \
+      --db-name=magento \
+      --db-user=magento \
+      --db-password=magento \
+      --search-engine=elasticsearch7 \
+      --elasticsearch-host=db \
+      --elasticsearch-port=9200 \
+      --elasticsearch-index-prefix=magento2 \
+      --elasticsearch-enable-auth=0 \
+      --elasticsearch-timeout=15 \
+      --http-cache-hosts=varnish:80 \
+      --session-save=redis \
+      --session-save-redis-host=db \
+      --session-save-redis-port=6379 \
+      --session-save-redis-db=2 \
+      --session-save-redis-max-concurrency=20 \
+      --cache-backend=redis \
+      --cache-backend-redis-server=db \
+      --cache-backend-redis-db=0 \
+      --cache-backend-redis-port=6379 \
+      --page-cache=redis \
+      --page-cache-redis-server=db \
+      --page-cache-redis-db=1 \
+      --page-cache-redis-port=6379
+
+  if [ -n "$AUTO_MAGENTO_SAMPLEDATA" ]; then
+    bin/magento sampledata:deploy
+    bin/magento setup:upgrade
+  fi
+
+  ## Configure Application
+  bin/magento config:set --lock-env web/unsecure/base_url "http://localhost:8080/"
+  bin/magento config:set --lock-env web/secure/base_url "http://localhost:8080/"
+
+  bin/magento module:disable Magento_TwoFactorAuth
+
+  # bin/magento config:set --lock-env web/secure/offloader_header X-Forwarded-Proto
+
+  bin/magento config:set --lock-env web/secure/use_in_frontend 0
+  bin/magento config:set --lock-env web/secure/use_in_adminhtml 0
+  bin/magento config:set --lock-env web/seo/use_rewrites 1
+
+  bin/magento config:set --lock-env system/full_page_cache/caching_application 2
+  bin/magento config:set --lock-env system/full_page_cache/ttl 604800
+
+  bin/magento config:set --lock-env catalog/search/enable_eav_indexer 1
+
+  bin/magento config:set --lock-env dev/static/sign 0
+
+  bin/magento cache:disable block_html full_page
+
+  bin/magento deploy:mode:set production
+
+  bin/magento indexer:reindex
+  bin/magento cache:flush
+
+  bin/magento admin:user:create --admin-user admin --admin-password admin123 --admin-firstname demo --admin-lastname user --admin-email noreply@blueacornici.com
+
+  touch .installed.flag
+
+else
+    echo "Flag found, kicking off the dev server without installing Magento"
 fi
-
-if [ -n "$AUTO_POPULATE_WORKSPACE" ]; then
-  cd $AUTO_WORKSPACE_FOLDER
-fi
-
-composer -q require $AUTO_COMPOSER_REQUIRE
-
-rm app/etc/config.php app/etc/env.php
-
-bin/magento setup:install \
-    --backend-frontname=backend \
-    --amqp-host=db \
-    --amqp-port=5672 \
-    --amqp-user=guest \
-    --amqp-password=guest \
-    --db-host=db \
-    --db-name=magento \
-    --db-user=magento \
-    --db-password=magento \
-    --search-engine=elasticsearch7 \
-    --elasticsearch-host=db \
-    --elasticsearch-port=9200 \
-    --elasticsearch-index-prefix=magento2 \
-    --elasticsearch-enable-auth=0 \
-    --elasticsearch-timeout=15 \
-    --http-cache-hosts=varnish:80 \
-    --session-save=redis \
-    --session-save-redis-host=db \
-    --session-save-redis-port=6379 \
-    --session-save-redis-db=2 \
-    --session-save-redis-max-concurrency=20 \
-    --cache-backend=redis \
-    --cache-backend-redis-server=db \
-    --cache-backend-redis-db=0 \
-    --cache-backend-redis-port=6379 \
-    --page-cache=redis \
-    --page-cache-redis-server=db \
-    --page-cache-redis-db=1 \
-    --page-cache-redis-port=6379
-
-if [ -n "$AUTO_MAGENTO_SAMPLEDATA" ]; then
-  bin/magento sampledata:deploy
-  bin/magento setup:upgrade
-fi
-
-## Configure Application
-bin/magento config:set --lock-env web/unsecure/base_url "http://localhost:8080/"
-bin/magento config:set --lock-env web/secure/base_url "http://localhost:8080/"
-
-bin/magento module:disable Magento_TwoFactorAut
-
-# bin/magento config:set --lock-env web/secure/offloader_header X-Forwarded-Proto
-
-bin/magento config:set --lock-env web/secure/use_in_frontend 0
-bin/magento config:set --lock-env web/secure/use_in_adminhtml 0
-bin/magento config:set --lock-env web/seo/use_rewrites 1
-
-bin/magento config:set --lock-env system/full_page_cache/caching_application 2
-bin/magento config:set --lock-env system/full_page_cache/ttl 604800
-
-bin/magento config:set --lock-env catalog/search/enable_eav_indexer 1
-
-bin/magento config:set --lock-env dev/static/sign 0
-
-bin/magento cache:disable block_html full_page
-
-bin/magento deploy:mode:set production
-
-bin/magento indexer:reindex
-bin/magento cache:flush
-
-bin/magento admin:user:create --admin-user admin --admin-password admin123 --admin-firstname demo --admin-lastname user --admin-email noreply@blueacornici.com
 
 php -S 127.0.0.1:8080 -t ./pub/ ./phpserver/router.php
